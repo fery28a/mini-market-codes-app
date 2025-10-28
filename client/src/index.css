@@ -1,0 +1,17 @@
+/* client/src/index.css */
+
+/* Menghapus margin dan padding default dari browser */
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh; /* Memastikan body minimal setinggi viewport */
+    box-sizing: border-box; /* Mengubah model kotak agar padding dan border tidak menambah ukuran elemen */
+}
+
+/* Mengatur ukuran font dasar */
+#root {
+    font-family: Arial, sans-serif;
+    /* Pastikan root container juga full width */
+    width: 100%; 
+}
