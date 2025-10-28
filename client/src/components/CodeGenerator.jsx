@@ -1,7 +1,30 @@
 // client/src/components/CodeGenerator.jsx
 
 import React, { useState, useEffect } from 'react';
+// Pastikan path ini benar untuk dua fungsi API yang terpisah
 import { getCurrentCode, getNextCode } from '../api/api'; 
+
+// Fungsi fallback untuk menyalin jika navigator.clipboard tidak tersedia (saat menggunakan HTTP)
+const fallbackCopyTextToClipboard = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";  
+    textArea.style.opacity = 0;          
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        // Metode penyalinan lama yang bekerja di konteks non-HTTPS
+        const successful = document.execCommand('copy');
+        if (!successful) {
+            throw new Error("Failed using document.execCommand");
+        }
+    } catch (err) {
+        document.body.removeChild(textArea);
+        throw err;
+    }
+    document.body.removeChild(textArea);
+};
 
 const CodeGenerator = ({ type, title, color }) => {
   const [currentCode, setCurrentCode] = useState('Loading...');
@@ -17,7 +40,7 @@ const CodeGenerator = ({ type, title, color }) => {
       setMessage(`Kode ${code} siap disalin.`);
     } catch (err) {
       setCurrentCode('--- ERROR ---');
-      setMessage('Gagal terhubung ke Server API (Port 8087). Pastikan server berjalan.');
+      setMessage('Gagal terhubung ke Server API (Port 8087). Pastikan Nginx/PM2 berjalan.');
     }
   };
 
@@ -27,7 +50,6 @@ const CodeGenerator = ({ type, title, color }) => {
 
   // Fungsi Copy dan Ganti Kode
   const handleCopy = async () => {
-    // Cek status processing
     if (isProcessing || currentCode.includes('ERROR') || currentCode === 'Loading...') {
       return;
     }
@@ -35,15 +57,31 @@ const CodeGenerator = ({ type, title, color }) => {
     setIsProcessing(true); 
 
     try {
-      // 1. Salin Kode
-      await navigator.clipboard.writeText(currentCode);
-      setIsCopied(true); 
-      setMessage(`Kode ${currentCode} telah disalin! Meminta kode berikutnya...`);
+        // 1. Salin Kode (Menggunakan Fallback jika navigator.clipboard undefined)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            // Metode modern (HTTPS)
+            await navigator.clipboard.writeText(currentCode);
+        } else {
+            // Metode fallback (HTTP) - Mengatasi TypeError
+            fallbackCopyTextToClipboard(currentCode); 
+        }
+        
+        // Salinan berhasil, lanjutkan ke API
+        setIsCopied(true); 
+        setMessage(`Kode ${currentCode} telah disalin! Meminta kode berikutnya...`);
+        
+    } catch (err) {
+        console.error('Copy failed:', err);
+        setIsProcessing(false); 
+        setMessage('Gagal menyalin. Silakan coba metode salin manual atau aktifkan HTTPS.');
+        return; // Hentikan proses jika salin gagal
+    }
+    
+    // --- Lanjutkan ke Peningkatan Kode (API) ---
+    try {
+      const nextCode = await getNextCode(type); // Panggilan POST untuk increment
       
-      // 2. Panggil getNextCode (POST, satu kali increment)
-      const nextCode = await getNextCode(type);
-      
-      // 3. Update state
+      // Update state setelah delay singkat
       setTimeout(() => {
         setCurrentCode(nextCode);
         setIsCopied(false); 
@@ -52,9 +90,9 @@ const CodeGenerator = ({ type, title, color }) => {
       }, 500); 
 
     } catch (err) {
-      console.error('Copy failed:', err);
+      console.error('API failed:', err);
       setIsProcessing(false); 
-      setMessage('Gagal menyalin atau API gagal menghasilkan kode berikutnya.');
+      setMessage('API gagal menghasilkan kode berikutnya, meskipun salinan berhasil.');
     }
   };
 
@@ -70,7 +108,7 @@ const CodeGenerator = ({ type, title, color }) => {
     }}>
       <h3 style={{ marginTop: '0', color: color, borderBottom: `2px solid ${color}30`, paddingBottom: '10px' }}>{title}</h3>
       
-      {/* Kotak Kode */}
+      {/* Kotak Kode (Lebih Besar & Interaktif) */}
       <div style={{ 
         marginBottom: '20px', 
         fontSize: '2.5em', 
@@ -108,7 +146,7 @@ const CodeGenerator = ({ type, title, color }) => {
             ? '✅ BERHASIL DISALIN! Mengganti...' 
             : isProcessing 
             ? '⏳ Memproses...'
-            : `COPY `}
+            : `COPY (${currentCode}) & GANTI KODE`}
       </button>
       
       {/* Pesan Status */}
