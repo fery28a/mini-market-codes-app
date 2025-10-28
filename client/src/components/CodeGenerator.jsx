@@ -146,7 +146,7 @@ const CodeGenerator = ({ type, title, color }) => {
             ? '✅ BERHASIL DISALIN! Mengganti...' 
             : isProcessing 
             ? '⏳ Memproses...'
-            : `COPY (${currentCode}) & GANTI KODE`}
+            : `COPY `}
       </button>
       
       {/* Pesan Status */}
